@@ -1,11 +1,12 @@
 ---
 plugin: networktocode.nautobot.gql_inventory
-api_endpoint: https://192.168.128.7/
+api_endpoint: "http://192.168.128.7/"
 token: "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"
+verify_ssl: false
 query:
   devices:
-    role: name
-    id:
+    id: 
+    name:
 group_by:
   - role.name
 
