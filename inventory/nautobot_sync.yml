@@ -1,0 +1,11 @@
+---
+plugin: networktocode.nautobot.gql_inventory
+api_endpoint: https://192.168.128.7/
+token: "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"
+query:
+  devices:
+    role: name
+    id:
+group_by:
+  - role.name
+
