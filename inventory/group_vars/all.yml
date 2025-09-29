@@ -1,0 +1,5 @@
+plugin: networktocode.nautobot.inventory
+api_endpoint: http://192.168.128.7
+token: 1f1652d698bd1e519ac3bebbab09ae7eb03ccfb6
+validate_certs: false
+
