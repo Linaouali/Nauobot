@@ -1,0 +1,22 @@
+---
+plugin: gql_inventory
+#plugin: nautobot.gql_inventory
+#api_endpoint: "https://192.168.128.7/graphql/"
+api_endpoint: "https://192.168.128.7/api/graphql/"
+token: "1f1652d698bd1e519ac3bebbab09ae7eb03ccfb6"
+validate_certs: false
+
+query:
+  devices:
+    id:
+    name:
+    primary_ip4:
+      - host
+    primary_ip6:
+      - host
+    platform:
+      napalm_driver
+
+group_by:
+  - role.name
+
