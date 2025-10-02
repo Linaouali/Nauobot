@@ -12,7 +12,7 @@
       when: ip_address != '' and ip_address != '0.0.0.0'
 
     - name: Run L3 interfaces resource module with state merged
-      aos_l3_interfaces:   # replace with your actual module name
+      ale.aos8.aos8_l3_interfaces:
         device: "{{ device_id }}"
         interface: "{{ interface_name }}"
         label: "{{ label }}"
