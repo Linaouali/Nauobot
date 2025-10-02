@@ -2,16 +2,24 @@
 - name: Interface Update
   hosts: "{{ device_id }}"
   gather_facts: no
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
   tasks:
+
+    - name: Ensure IP address is defined
+      fail:
+        msg: "ip_address is undefined for {{ inventory_hostname }}"
+      when: ip_address is not defined
+
     - name: Derive address and mask from CIDR
       set_fact:
-        l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') }}"
-        l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') }}"
+        l3_addr: "{{ ip_address | ipaddr('address') }}"
+        l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ipaddr('prefix'))) | ipaddr('netmask') }}"
 
     - name: Run L3 interfaces resource module with state merged
       ale.aos8.aos8_l3_interfaces:
         config:
-          - name: "{{ interface_id }}"
+          - iface_name: "{{ interface_id }}"   # renommé pour éviter le warning "name"
             address: "{{ l3_addr }}"
             mask: "{{ l3_mask }}"
             type: "{{ int_type }}"
