@@ -12,6 +12,9 @@ query:
     primary_ip6: host
     platform: napalm_driver
 
+compose:
+  ansible_host: primary_ip4.host
+
 group_by:
   - role.name
 
