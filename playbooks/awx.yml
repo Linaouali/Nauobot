@@ -1,28 +1,21 @@
 ---
 - name: Interface Update
-  hosts: all
+  hosts: "{{ device_host }}"
   gather_facts: no
-  vars:
-    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
-  tasks:
 
-    - name: Derive address and mask from CIDR
-      set_fact:
-        interface_ip: "{{ ip_address | ipaddr }}"
-      when: ip_address != '' and ip_address != '0.0.0.0'
+tasks:
+  - name: Derive address and mask from CIDR
+    set_fact:
+      l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') }}"
+      l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') }}"
 
-    - name: Run L3 interfaces resource module with state merged
-      ale.aos8.aos8_l3_interfaces:
-        device: "{{ device_id }}"
-        interface: "{{ interface_name }}"
-        label: "{{ label }}"
-        mode: "{{ mode }}"
-        untagged_vlan: "{{ untagged_vlan }}"
-        tagged_vlans: "{{ tagged_vlans }}"
-        description: "{{ description }}"
-        enabled: "{{ enabled }}"
-        ip_address: "{{ interface_ip | default(omit) }}"
-        physical_port: "{{ physical_port }}"
-        type: "{{ int_type }}"
-      when: int_type is defined and int_type != ''
+  - name: Run L3 interfaces resource module with state merged
+    ale.aos8.aos8_l3_interfaces:
+      config:
+        - name: "{{ interface_id }}"
+          address: "{{ l3_addr }}"
+          mask: "{{ l3_mask }}"
+          type: "{{ int_type }}"
+          port_id: "{{ tagged_vlans }}"
+      state: merged
 
