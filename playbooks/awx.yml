@@ -3,7 +3,7 @@
   hosts: "{{ device_id }}"
   gather_facts: no
   vars:
-    ansible_python_interpreter: /usr/bin/python3
+    ansible_python_interpreter: /usr/bin/python3.11
   tasks:
 
     - name: Ensure IP address is defined
@@ -13,16 +13,19 @@
 
     - name: Derive address and mask from CIDR
       set_fact:
-        l3_addr: "{{ ip_address | ipaddr('address') }}"
-        l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ipaddr('prefix'))) | ipaddr('netmask') }}"
+        l3_addr: "{{ ip_address.split('/')[0] }}"
+        l3_mask: >-
+          {% set prefix = ip_address.split('/')[1]|int %}
+          {% set mask = 0xffffffff ^ (2**(32-prefix)-1) %}
+          {{ ((mask >> 24) & 255) ~ '.' ~ ((mask >> 16) & 255) ~ '.' ~ ((mask >> 8) & 255) ~ '.' ~ (mask & 255) }}
 
     - name: Run L3 interfaces resource module with state merged
       ale.aos8.aos8_l3_interfaces:
         config:
-          - iface_name: "{{ interface_id }}"   # renommé pour éviter le warning "name"
+          - iface_name: "{{ interface_id }}"   # renommé pour éviter warning "name"
             address: "{{ l3_addr }}"
             mask: "{{ l3_mask }}"
-            type: "{{ int_type }}"
+            type: "{{ int_type | default('ethernet') }}"
             port_id: "{{ tagged_vlans }}"
         state: merged
 
