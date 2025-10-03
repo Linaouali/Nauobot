@@ -4,34 +4,32 @@
   gather_facts: no
   vars:
     ansible_python_interpreter: /usr/bin/python3.11
+
   tasks:
 
     - name: Ensure IP address is defined
-      fail:
-        msg: "ip_address is undefined for {{ inventory_hostname }}"
-      when: ip_address is not defined
+      debug:
+        msg: "ip_address is empty, skipping CIDR processing"
+      when: ip_address == "" or ip_address is not defined
 
     - name: Derive address and mask from CIDR
       set_fact:
         l3_addr: "{{ ip_address.split('/')[0] }}"
-        l3_mask: >-
-          {% set prefix = ip_address.split('/')[1] | int %}
-          {% set bits = ('1' * prefix).ljust(32, '0') %}
-          {{ [bits[0:8], bits[8:16], bits[16:24], bits[24:32]]
-              | map('int', 2)
-              | join('.') }}
+        l3_mask: "{{ ('0.0.0.0/' ~ ip_address.split('/')[1]) | ansible.utils.ipaddr('netmask') }}"
+      when: ip_address != "" and ip_address is defined
 
     - name: Debug derived values
       debug:
-        msg: "Device {{ inventory_hostname }} -> addr={{ l3_addr }}, mask={{ l3_mask }}"
+        msg: "Device {{ inventory_hostname }} -> addr={{ l3_addr | default('N/A') }}, mask={{ l3_mask | default('N/A') }}"
 
     - name: Run L3 interfaces resource module with state merged
       ale.aos8.aos8_l3_interfaces:
         config:
-          - iface_name: "{{ interface_id }}"
-            address: "{{ l3_addr }}"
-            mask: "{{ l3_mask }}"
-            type: "{{ int_type | default('ethernet') }}"
+          - name: "{{ interface_id }}"
+            address: "{{ l3_addr | default(omit) }}"
+            mask: "{{ l3_mask | default(omit) }}"
+            type: "{{ int_type | default('vlan') }}"
             port_id: "{{ tagged_vlans }}"
         state: merged
+      when: ip_address != "" and ip_address is defined
 
