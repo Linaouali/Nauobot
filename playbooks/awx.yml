@@ -4,7 +4,7 @@
   gather_facts: no
   vars:
     ansible_remote_tmp: /tmp/.ansible/tmp
-
+    ignore_errors: true
   tasks:
 
     - name: Derive address and mask from CIDR if present
