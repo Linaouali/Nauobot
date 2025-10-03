@@ -7,12 +7,7 @@
 
   tasks:
 
-    - name: Ensure IP address is defined
-      debug:
-        msg: "ip_address is empty or undefined, skipping CIDR processing"
-      when: ip_address is not defined or ip_address | length == 0
-
-    - name: Derive address and mask from CIDR
+    - name: Derive address and mask from CIDR if present
       set_fact:
         l3_addr: "{{ ip_address.split('/')[0] }}"
         l3_mask: "{{ ip_address.split('/')[1] | int }}"
@@ -25,29 +20,22 @@
     - name: Build final config for ALE module
       set_fact:
         final_config:
-          - name: >-
-              {{
-                (int_type if int_type is defined and int_type | length > 0 else 'ethernet')
-                ~ (physical_port if physical_port is defined and physical_port | length > 0 else interface_id)
-              }}
+          - name: "{{ interface_id }}"
             description: "{{ description | default('') }}"
-            enabled: "{{ enabled | default(true) }}"
-            ipv4: >-
-              {{
-                [{'address': l3_addr, 'mask': l3_mask}]
-                if (l3_addr is defined and l3_mask is defined)
-                else omit
-              }}
-      when: ip_address is defined and ip_address | length > 0
+            enabled: "{{ enabled | default(true) | bool }}"
+            ipv4:
+              - address: "{{ l3_addr }}"
+                mask: "{{ l3_mask }}"
+      when: l3_addr is defined and l3_mask is defined
 
     - name: Show final config before sending to module
       debug:
-        msg: "{{ final_config | to_nice_yaml }}"
+        var: final_config
       when: final_config is defined
 
     - name: Run L3 interfaces resource module with state merged
       ale.aos8.aos8_l3_interfaces:
         config: "{{ final_config }}"
         state: merged
-      when: final_config is defined and final_config | length > 0
+      when: final_config is defined
 
