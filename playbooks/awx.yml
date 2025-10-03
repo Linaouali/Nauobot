@@ -42,7 +42,7 @@
 
     - name: Show final config before sending to module
       debug:
-        var: final_config
+        msg: "{{ final_config | to_nice_yaml }}"
       when: final_config is defined
 
     - name: Run L3 interfaces resource module with state merged
