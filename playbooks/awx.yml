@@ -3,7 +3,6 @@
   hosts: "{{ device_id }}"
   gather_facts: no
   vars:
-    ansible_python_interpreter: /usr/bin/python3.11
     ansible_remote_tmp: /tmp/.ansible/tmp
   tasks:
 
