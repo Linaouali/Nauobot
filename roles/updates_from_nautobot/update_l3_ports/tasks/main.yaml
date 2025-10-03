@@ -7,7 +7,7 @@
   - name: Run L3 interfaces resource module with state merged
     ale.aos8.aos8_l3_interfaces:
       config:
-        - name: "{{ interface_id }}"
+        - iface_name: "{{ interface_id }}"
           address: "{{ l3_addr }}"
           mask: "{{ l3_mask }}"
           type: "{{ int_type }}" ## only vlan is supported
