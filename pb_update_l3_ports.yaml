@@ -4,11 +4,6 @@
   gather_facts: no
   vars:
     ansible_remote_tmp: /tmp/.ansible/tmp
-    ansible_command_timeout: 120
-    connection: network_cli
-    ansible_become: yes
-    ansible_become_method: enable
-    ansible_remote_tmp: /tmp/.ansible/tmp
   # ignore_errors: true
 
   # connection: network_cli
