@@ -4,18 +4,19 @@
   gather_facts: no
   vars:
     ansible_remote_tmp: /tmp/.ansible/tmp
+
   tasks:
 
     - name: Ensure IP address is defined
       debug:
         msg: "ip_address is empty, skipping CIDR processing"
-      when: ip_address == "" or ip_address is not defined
+      when: ip_address is not defined or ip_address == ""
 
     - name: Derive address and mask from CIDR
       set_fact:
         l3_addr: "{{ ip_address.split('/')[0] }}"
-        l3_mask: "{{ ('0.0.0.0/' ~ ip_address.split('/')[1]) | ansible.utils.ipaddr('netmask') }}"
-      when: ip_address != "" and ip_address is defined
+        l3_mask: "{{ ip_address.split('/')[1] | int }}"
+      when: ip_address is defined and ip_address != ""
 
     - name: Debug derived values
       debug:
@@ -25,10 +26,19 @@
       ale.aos8.aos8_l3_interfaces:
         config:
           - name: "{{ interface_id }}"
-            address: "{{ l3_addr | default(omit) }}"
-            mask: "{{ l3_mask | default(omit) }}"
-              #type: "{{ default('vlan') }}"
-            port_id: "{{ tagged_vlans }}"
+            description: "{{ description | default('') }}"
+            enabled: "{{ enabled | default(true) | bool }}"
+            ipv4: >-
+              {{
+                [
+                  {
+                    'address': l3_addr,
+                    'mask': l3_mask
+                  }
+                ]
+                if (ip_address is defined and ip_address != "")
+                else []
+              }}
         state: merged
-      when: ip_address != "" and ip_address is defined
+      when: ip_address is defined and ip_address != ""
 
