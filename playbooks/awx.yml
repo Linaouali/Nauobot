@@ -27,7 +27,7 @@
           - name: "{{ interface_id }}"
             address: "{{ l3_addr | default(omit) }}"
             mask: "{{ l3_mask | default(omit) }}"
-            type: "{{ default('vlan') }}"
+              #type: "{{ default('vlan') }}"
             port_id: "{{ tagged_vlans }}"
         state: merged
       when: ip_address != "" and ip_address is defined
