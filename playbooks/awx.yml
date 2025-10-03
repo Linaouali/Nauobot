@@ -5,8 +5,8 @@
   connection: network_cli          # <-- obligatoire pour ALE
   vars:
     ansible_network_os: aos8      # <-- type de switch
-    ansible_user: "{{ username }}"       # à définir dans tes credentials ou vars
-    ansible_password: "{{ password }}"
+      #ansible_user: "{{ username }}"       # à définir dans tes credentials ou vars
+      #ansible_password: "{{ password }}"
     ansible_become: yes
     ansible_become_method: enable
     ansible_remote_tmp: /tmp/.ansible/tmp  # tmp safe sur le switch
