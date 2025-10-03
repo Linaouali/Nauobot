@@ -15,14 +15,14 @@
       set_fact:
         l3_addr: "{{ ip_address.split('/')[0] }}"
         l3_mask: >-
-          {% set prefix = ip_address.split('/')[1]|int %}
-          {% set mask = 0xffffffff ^ (2**(32-prefix)-1) %}
+          {% set prefix = ip_address.split('/')[1] | int %}
+          {% set mask = (0xffffffff << (32 - prefix)) & 0xffffffff %}
           {{ ((mask >> 24) & 255) ~ '.' ~ ((mask >> 16) & 255) ~ '.' ~ ((mask >> 8) & 255) ~ '.' ~ (mask & 255) }}
 
     - name: Run L3 interfaces resource module with state merged
       ale.aos8.aos8_l3_interfaces:
         config:
-          - iface_name: "{{ interface_id }}"   # renommé pour éviter warning "name"
+          - iface_name: "{{ interface_id }}"   # éviter warning "name"
             address: "{{ l3_addr }}"
             mask: "{{ l3_mask }}"
             type: "{{ int_type | default('ethernet') }}"
