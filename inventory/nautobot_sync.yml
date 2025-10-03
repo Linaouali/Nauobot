@@ -14,14 +14,13 @@ query:
 
 compose:
   ansible_host: primary_ip4.host
-
-group_by:
-  - role.name
-
-vars:
   ansible_network_os: ale.aos8.aos8
   ansible_connection: network_cli
   ansible_user: admin
   ansible_password: switch
   ansible_command_timeout: 60
   ansible_connect_timeout: 90
+
+group_by:
+  - role.name
+
