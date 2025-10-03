@@ -2,8 +2,15 @@
 - name: Interface Update
   hosts: "{{ device_id }}"
   gather_facts: no
+  connection: network_cli          # <-- obligatoire pour ALE
   vars:
-    ansible_remote_tmp: /tmp/.ansible/tmp
+    ansible_network_os: aos8      # <-- type de switch
+    ansible_user: "{{ username }}"       # à définir dans tes credentials ou vars
+    ansible_password: "{{ password }}"
+    ansible_become: yes
+    ansible_become_method: enable
+    ansible_remote_tmp: /tmp/.ansible/tmp  # tmp safe sur le switch
+
   tasks:
 
     - name: Ensure IP address is defined
@@ -19,15 +26,20 @@
 
     - name: Debug derived values
       debug:
-        msg: "Device {{ inventory_hostname }} -> addr={{ l3_addr | default('N/A') }}, mask={{ l3_mask | default('N/A') }}"
+        msg:
+          - "Device {{ inventory_hostname }}"
+          - "IP Address: {{ l3_addr | default('N/A') }}"
+          - "Netmask: {{ l3_mask | default('N/A') }}"
+          - "Interface type raw: '{{ int_type | default('vlan') }}'"
+          - "Interface type cleaned: '{{ int_type | default('vlan') | trim }}'"
 
     - name: Run L3 interfaces resource module with state merged
       ale.aos8.aos8_l3_interfaces:
         config:
-          - name: "{{ interface_id }}"
+          - iface_name: "{{ interface_id }}"
             address: "{{ l3_addr | default(omit) }}"
             mask: "{{ l3_mask | default(omit) }}"
-              #type: "{{ default('vlan') }}"
+              #type: "{{ int_type | default('vlan') | trim }}" 
             port_id: "{{ tagged_vlans }}"
         state: merged
       when: ip_address != "" and ip_address is defined
