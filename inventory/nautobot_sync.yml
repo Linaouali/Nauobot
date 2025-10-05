@@ -9,12 +9,18 @@ query:
     id: null
     name: null
     primary_ip4: host
-    primary_ip6: host
-    platform: napalm_driver
+    platform: 
+      napalm_driver
+      network_driver
 
 compose:
   ansible_host: primary_ip4.host
-  ansible_network_os: "ale.aos8.aos8"
+  ansible_network_os: >-
+    {{
+      'ale.aos8.aos8'
+      if platform.napalm_driver == 'aos'
+      else 'unsupported'
+    }}
   ansible_connection: network_cli
   ansible_user: "admin"
   ansible_password: "switch"
