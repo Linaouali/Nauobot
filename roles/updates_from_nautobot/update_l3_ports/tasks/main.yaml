@@ -1,15 +1,32 @@
----  
-  - name: Derive address and mask from CIDR
-    set_fact:
-      l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') }}"
-      l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') }}"
+---
+- name: Derive address and mask from CIDR
+  set_fact:
+    l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') if ip_address else omit }}"
+    l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') if ip_address else omit }}"
 
-  - name: Run L3 interfaces resource module with state merged
-    ale.aos8.aos8_l3_interfaces:
-      config:
-        - name: "{{ interface_id }}"
-          address: "{{ l3_addr }}"
-          mask: "{{ l3_mask }}"
-            #type: "{{ int_type }}" ## only vlan is supported
-          port_id: "{{ tagged_vlans }}"
-      state: merged
+- name: Convert VLANs and prepare clean vars
+  set_fact:
+    vlan_list: "{{ tagged_vlans.split(',') if tagged_vlans is string and tagged_vlans|length > 0 else [] }}"
+    untagged_vlan_id: "{{ untagged_vlan if untagged_vlan|length > 0 else omit }}"
+
+- name: Debug before applying
+  debug:
+    msg:
+      interface_id: "{{ interface_id }}"
+      l3_addr: "{{ l3_addr }}"
+      l3_mask: "{{ l3_mask }}"
+      vlan_list: "{{ vlan_list }}"
+      untagged_vlan_id: "{{ untagged_vlan_id | default('None') }}"
+      int_type: "{{ int_type | default('None') }}"
+      physical_port: "{{ physical_port | default('None') }}"
+
+- name: Configure L3 interface
+  ale.aos8.aos8_l3_interfaces:
+    config:
+      - name: "{{ interface_id }}"
+        address: "{{ l3_addr }}"
+        mask: "{{ l3_mask }}"
+        port_id: "{{ vlan_list }}"
+    state: merged
+  when: l3_addr is defined
+
