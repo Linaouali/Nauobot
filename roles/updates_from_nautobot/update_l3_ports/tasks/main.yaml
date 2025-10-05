@@ -27,7 +27,7 @@
         address: "{{ l3_addr }}"
         mask: "{{ l3_mask }}"
         port_id: "{{ vlan_list }}"
-        int_type: "{{ int_type | default('vlan') }}"
+          #int_type: "{{ int_type | default('vlan') }}"
         physical_port: "{{ physical_port | default('') }}"
         untagged_vlan_id: "{{ untagged_vlan_id | default(omit) }}"
     state: merged
