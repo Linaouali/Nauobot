@@ -55,14 +55,6 @@
             "port_number": interface_id,
             "mode": "untagged",
           }] if untagged_vlan_id is defined else [])
-          +
-          (vlan_list | default([]) | map('int') | map('community.general.to_json')
-           | map('from_json') | map('combine', {
-               "port_number": interface_id,
-               "port_type": "port",
-               "mode": "tagged",
-               "vlan_id": ["{{ item }}"]
-             }) | list if vlan_list | length > 0 else [])
         )
       }}
   when: untagged_vlan_id is defined or vlan_list | length > 0
