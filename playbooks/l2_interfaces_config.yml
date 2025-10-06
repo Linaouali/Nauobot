@@ -1,13 +1,13 @@
 ---
 - name: Apply L2 interface configuration from Nautobot webhook
   hosts: "{{ device_id }}"
-  gather_facts: false
+  gather_facts: no
   connection: network_cli
   ignore_errors: true
 
   vars:
     ansible_aos_flash_synchro_flag: false
-
+    ansible_remote_tmp: /tmp/.ansible/tmp
   tasks:
 
     - name: Convert VLAN and port vars
