@@ -50,11 +50,10 @@
       {{
         (
           ([{
-            "port_number": interface_id,
-            "port_type": "port",
             "vlan_id": untagged_vlan_id,
+            "port_type": "port",
+            "port_number": interface_id,
             "mode": "untagged",
-            "untagged_vlan": untagged_vlan_id
           }] if untagged_vlan_id is defined else [])
           +
           (vlan_list | default([]) | map('int') | map('community.general.to_json') 
@@ -62,7 +61,7 @@
                "port_number": interface_id,
                "port_type": "port",
                "mode": "tagged",
-               "tagged_vlans": ["{{ item }}"]
+               "vlan_id":: ["{{ item }}"]
              }) | list if vlan_list | length > 0 else [])
         )
       }}
