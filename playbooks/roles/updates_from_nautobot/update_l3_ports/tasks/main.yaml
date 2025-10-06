@@ -1,8 +1,20 @@
 ---
-- name: Derive address and mask from CIDR (if IP defined)
+# tasks/main.yaml
+
+- name: Ensure VLAN exists if interface is L3
+  ale.aos8.aos8_vlans:
+    config:
+      - vlan_id: "{{ untagged_vlan_id | default(vlan_list[0]) }}"
+        name: "VLAN{{ untagged_vlan_id | default(vlan_list[0]) }}"
+        admin: enable
+    state: merged
+  when: l3_addr is defined or (l3_addr is not defined and (untagged_vlan_id is defined or vlan_list | length > 0))
+
+- name: Derive address and mask from CIDR
   set_fact:
     l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') if ip_address else omit }}"
     l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') if ip_address else omit }}"
+  when: ip_address is defined
 
 - name: Convert VLANs and prepare clean vars
   set_fact:
@@ -47,6 +59,6 @@
 - name: Configure L2 interface
   ale.aos8.aos8_l2_interfaces:
     config: "{{ l2_config }}"
-    state: rendered
+    state: merged
   when: l3_addr is not defined
 
