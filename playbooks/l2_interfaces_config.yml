@@ -1,0 +1,37 @@
+---
+- name: Apply L2 interface configuration from Nautobot webhook
+  hosts: "{{ device_id }}"
+  gather_facts: false
+  connection: network_cli
+  ignore_errors: true
+
+  vars:
+    ansible_aos_flash_synchro_flag: false
+
+  tasks:
+
+    - name: Convert VLAN and port vars
+      set_fact:
+        tagged_vlans_list: "{{ tagged_vlans if tagged_vlans is iterable else [] }}"
+        untagged_vlan_id: "{{ untagged_vlan if untagged_vlan | length > 0 else omit }}"
+        port_mode: "{{ mode | lower if mode is defined else 'access' }}"
+
+    - name: Debug variables received from Nautobot
+      debug:
+        msg:
+          device: "{{ device_id }}"
+          interface: "{{ interface_id }}"
+          physical_port: "{{ physical_port }}"
+          tagged_vlans: "{{ tagged_vlans_list }}"
+          untagged_vlan: "{{ untagged_vlan_id | default('None') }}"
+          mode: "{{ port_mode }}"
+
+    - name: Configure L2 interface based on Nautobot webhook
+      ale.aos8.aos8_l2_interfaces:
+        config:
+          - vlan_id: "{{ untagged_vlan_id | default(tagged_vlans_list[0] | default(omit)) }}"
+            port_type: port
+            port_number: "{{ interface_id }}"
+            mode: "{{ port_mode }}"
+        state: merged
+
