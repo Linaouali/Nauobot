@@ -1,0 +1,15 @@
+---  
+  - name: Derive address and mask from CIDR
+    set_fact:
+      l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') }}"
+      l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') }}"
+
+  - name: Run L3 interfaces resource module with state merged
+    ale.aos8.aos8_l3_interfaces:
+      config:
+        - name: "{{ interface_id }}"
+          address: "{{ l3_addr }}"
+          mask: "{{ l3_mask }}"
+            #type: "{{ int_type }}" ## only vlan is supported
+          port_id: "{{ tagged_vlans }}"
+      state: merged
