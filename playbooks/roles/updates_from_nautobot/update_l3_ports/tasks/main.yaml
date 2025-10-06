@@ -57,13 +57,7 @@
             "untagged_vlan": untagged_vlan_id
           }] if untagged_vlan_id is defined else [])
           +
-          ([{
-            "port_number": interface_id,
-            "port_type": "port",
-            "vlan_id": item,
-            "mode": "tagged",
-            "tagged_vlans": [item]
-          } for item in vlan_list] if vlan_list | length > 0 else [])
+          (vlan_list | map('regex_replace', '^(.*)$', '{"port_number":"'+interface_id+'","port_type":"port","vlan_id":\\1,"mode":"tagged","tagged_vlans":[\\1]}') | map('from_json') | list if vlan_list | length > 0 else [])
         )
       }}
   when: untagged_vlan_id is defined or vlan_list | length > 0
