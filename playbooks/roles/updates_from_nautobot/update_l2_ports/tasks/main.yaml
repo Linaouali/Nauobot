@@ -1,0 +1,32 @@
+---
+- name: Préparer les VLANs non-tagged et tagged
+  set_fact:
+    l2_tagged_vlans: "{{ tagged_vlans if tagged_vlans is iterable else [] }}"
+    l2_untagged_vlan: "{{ untagged_vlan if untagged_vlan | length > 0 else omit }}"
+
+- name: Construire la configuration L2 dynamiquement
+  set_fact:
+    l2_config: >-
+      {{
+        (l2_tagged_vlans | map('extract', {'vlan_id': None}) | list) +
+        ([{'vlan_id': l2_untagged_vlan, 'port_type': 'port', 'port_number': interface_id, 'mode': 'untagged'}] if l2_untagged_vlan is defined else [])
+      }}
+
+- name: Construire la configuration L2 complète
+  set_fact:
+    l2_config: >-
+      {{
+        l2_tagged_vlans | map('regex_replace', '.*', {'vlan_id': item, 'port_type': 'port', 'port_number': interface_id, 'mode': 'tagged'}) | list
+        + ([{'vlan_id': l2_untagged_vlan, 'port_type': 'port', 'port_number': interface_id, 'mode': 'untagged'}] if l2_untagged_vlan is defined else [])
+      }}
+
+- name: Debug configuration générée
+  debug:
+    var: l2_config
+
+- name: Configurer les VLANs L2 sur le switch
+  ale.aos8.aos8_l2_interfaces:
+    config: "{{ l2_config }}"
+    state: merged
+  when: l2_config is defined
+
