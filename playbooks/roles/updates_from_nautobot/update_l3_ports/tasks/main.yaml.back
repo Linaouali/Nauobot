@@ -1,14 +1,32 @@
----
+# Variables dynamiques
+- name: Prepare VLAN and interface variables
+  set_fact:
+    vlan_list: "{{ tagged_vlans if tagged_vlans is iterable else [] }}"
+    untagged_vlan_id: "{{ untagged_vlan if untagged_vlan is defined and untagged_vlan | length > 0 else omit }}"
+
+# Extraire adresse et masque depuis CIDR
 - name: Derive address and mask from CIDR
   set_fact:
     l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') if ip_address else omit }}"
     l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') if ip_address else omit }}"
 
-- name: Convert VLANs and prepare clean vars
+# Créer tous les VLANs nécessaires
+- name: Build list of VLANs to ensure exist
   set_fact:
-    vlan_list: "{{ tagged_vlans if tagged_vlans is iterable else [] }}"
-    untagged_vlan_id: "{{ untagged_vlan if untagged_vlan | length > 0 else omit }}"
+    all_vlans_to_create: >-
+      {{
+        ([untagged_vlan_id|string] if untagged_vlan_id is defined else [])
+        + (vlan_list | map('string') | list)
+      }}
 
+- name: Ensure all VLANs exist (untagged + tagged)
+  ale.aos8.aos8_vlans:
+    config: "{{ all_vlans_to_create | map('regex_replace', '^(.*)$', '{\"vlan_id\": \\1, \"name\": \"VLAN\\1\", \"admin\": \"enable\"}') | map('from_json') | list }}"
+    state: merged
+  when: all_vlans_to_create | length > 0
+  ignore_errors: true
+
+# Configurer interface L3 (si IP)
 - name: Build L3 interface config dynamically
   set_fact:
     l3_config:
@@ -17,14 +35,33 @@
         mask: "{{ l3_mask }}"
         type: "{{ int_type }}"
         port_id: "{{ untagged_vlan_id if int_type == 'vlan' else interface_id }}"
-
-- name: Debug generated config
-  debug:
-    var: l3_config
+  when: l3_addr is defined
 
 - name: Configure L3 interface
   ale.aos8.aos8_l3_interfaces:
     config: "{{ l3_config }}"
     state: merged
   when: l3_addr is defined
+
+# Configurer L2 interface (associer chaque VLAN au port)
+- name: Build L2 interface config
+  set_fact:
+    l2_config: >-
+      {{
+        (
+          ([{
+            "vlan_id": untagged_vlan_id,
+            "port_type": "port",
+            "port_number": interface_id,
+            "mode": "untagged",
+          }] if untagged_vlan_id is defined else [])
+        )
+      }}
+  when: untagged_vlan_id is defined or vlan_list | length > 0
+
+- name: Configure L2 interface
+  ale.aos8.aos8_l2_interfaces:
+    config: "{{ l2_config }}"
+    state: merged
+  when: l2_config is defined
 
