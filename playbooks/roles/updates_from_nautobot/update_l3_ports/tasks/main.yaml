@@ -29,8 +29,8 @@
 - name: Ensure all VLANs exist (untagged + tagged)
   ale.aos8.aos8_vlans:
     config:
-      - vlan_id: "{{ item }}"
-        name: "VLAN_{{ item }}"
+      - vlan_id: "{{ item | int }}"
+        name: "VLAN_{{ item | int }}"
     state: merged
   loop: "{{ all_vlans_to_create }}"
   when: all_vlans_to_create | length > 0
