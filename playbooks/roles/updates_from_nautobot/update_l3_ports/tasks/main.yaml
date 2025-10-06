@@ -12,20 +12,28 @@
     l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') if ip_address else omit }}"
     l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') if ip_address else omit }}"
 
-# 2. Créer automatiquement tous les VLANs nécessaires (untagged + tagged)
+# 2. Construire la liste complète de VLANs à créer
+- name: Build list of VLANs to ensure exist
+  set_fact:
+    all_vlans_to_create: >-
+      {{
+        ([untagged_vlan_id] if untagged_vlan_id is defined else [])
+        + vlan_list
+      }}
+
+- name: Debug VLAN list to be created
+  debug:
+    var: all_vlans_to_create
+
+# 3. Créer automatiquement tous les VLANs nécessaires (untagged + tagged)
 - name: Ensure all VLANs exist (untagged + tagged)
   ale.aos8.aos8_vlans:
-    config: >-
-      {{
-        ([{'vlan_id': untagged_vlan_id, 'name': 'VLAN' ~ untagged_vlan_id, 'admin': 'enable'}]
-        if untagged_vlan_id is defined else [])
-        +
-        (vlan_list | map('regex_replace', '^(.*)$', '{"vlan_id": \\1, "name": "VLAN\\1", "admin": "enable"}') | map('from_json') | list)
-      }}
+    config: "{{ all_vlans_to_create | map('community.general.dict_kv', 'vlan_id') 
+                | map('combine', {'admin': 'enable'}) | list }}"
     state: merged
-  when: untagged_vlan_id is defined or vlan_list | length > 0
+  when: all_vlans_to_create | length > 0
 
-# 3. Configurer L3 interface si IP définie
+# 4. Configurer L3 interface si IP définie
 - name: Build L3 interface config dynamically
   set_fact:
     l3_config:
@@ -47,7 +55,7 @@
     state: merged
   when: l3_addr is defined
 
-# 4. Configurer les ports L2 (untagged + tagged)
+# 5. Configurer les ports L2 (untagged + tagged)
 - name: Build L2 interface config
   set_fact:
     l2_config:
