@@ -26,7 +26,7 @@
       - name: "{{ interface_id }}"
         address: "{{ l3_addr }}"
         mask: "{{ l3_mask }}"
-        port_id: "{{ vlan_list }}"
+        port_id: "{{ untagged_vlan_id }}"
     state: merged
   when: l3_addr is defined
 
