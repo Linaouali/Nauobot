@@ -12,17 +12,20 @@
     l3_addr: "{{ ip_address | ansible.utils.ipaddr('address') if ip_address else omit }}"
     l3_mask: "{{ ('0.0.0.0/' ~ (ip_address | ansible.utils.ipaddr('prefix'))) | ansible.utils.ipaddr('netmask') if ip_address else omit }}"
 
-# 2. S'assurer que le VLAN existe si c'est une interface L3 ou L2
-- name: Ensure VLAN exists if interface is L3 or L2
+# 2. Créer automatiquement tous les VLANs nécessaires (untagged + tagged)
+- name: Ensure all VLANs exist (untagged + tagged)
   ale.aos8.aos8_vlans:
-    config:
-      - vlan_id: "{{ untagged_vlan_id | default(vlan_list[0] | default(omit)) }}"
-        name: "VLAN{{ untagged_vlan_id | default(vlan_list[0] | default(omit)) }}"
-        admin: enable
+    config: >-
+      {{
+        ([{'vlan_id': untagged_vlan_id, 'name': 'VLAN' ~ untagged_vlan_id, 'admin': 'enable'}]
+        if untagged_vlan_id is defined else [])
+        +
+        (vlan_list | map('regex_replace', '^(.*)$', '{"vlan_id": \\1, "name": "VLAN\\1", "admin": "enable"}') | map('from_json') | list)
+      }}
     state: merged
-  when: l3_addr is defined or (vlan_list | length > 0 or untagged_vlan_id is defined)
+  when: untagged_vlan_id is defined or vlan_list | length > 0
 
-# 3. Construire la configuration L3 si une IP est définie
+# 3. Configurer L3 interface si IP définie
 - name: Build L3 interface config dynamically
   set_fact:
     l3_config:
@@ -44,24 +47,24 @@
     state: merged
   when: l3_addr is defined
 
-# 4. Construire la configuration L2 si pas d'IP
-- name: Build L2 interface config if no IP
+# 4. Configurer les ports L2 (untagged + tagged)
+- name: Build L2 interface config
   set_fact:
     l2_config:
-      - vlan_id: "{{ untagged_vlan_id | default(vlan_list[0]) }}"
+      - port_number: "{{ interface_id }}"
         port_type: port
-        port_number: "{{ interface_id }}"
-        mode: "{{ 'untagged' if untagged_vlan_id is defined else 'tagged' }}"
-  when: l3_addr is not defined
+        mode: "{{ 'tagged' if vlan_list | length > 0 else 'untagged' }}"
+        untagged_vlan: "{{ untagged_vlan_id if untagged_vlan_id is defined else omit }}"
+        tagged_vlans: "{{ vlan_list if vlan_list | length > 0 else omit }}"
+  when: l3_addr is not defined or (untagged_vlan_id is defined or vlan_list | length > 0)
 
 - name: Debug generated L2 config
   debug:
     var: l2_config
-  when: l3_addr is not defined
 
 - name: Configure L2 interface
   ale.aos8.aos8_l2_interfaces:
     config: "{{ l2_config }}"
     state: rendered
-  when: l3_addr is not defined
+  when: l2_config is defined
 
