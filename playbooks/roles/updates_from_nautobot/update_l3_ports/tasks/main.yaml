@@ -68,15 +68,11 @@
 # --- Bloc séparé pour VLANs tagged ---
 - name: Configure tagged VLANs on the interface
   ale.aos8.aos8_l2_interfaces:
-    config: 
+    config:
       - vlan_id: "{{ item }}"
         port_type: port
         port_number: "{{ interface_id }}"
         mode: tagged
-        description: "Tagged VLAN {{ item }}"
-        admin_state: up
     state: merged
   loop: "{{ vlan_list }}"
   when: vlan_list | length > 0
-
-
