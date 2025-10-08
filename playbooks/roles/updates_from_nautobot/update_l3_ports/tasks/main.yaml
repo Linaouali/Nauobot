@@ -71,7 +71,7 @@
     config: 
       - vlan_id: "{{ item }}"
         port_type: port
-        port: "{{ interface_id }}"
+        port_number: "{{ interface_id }}"
         mode: tagged
         description: "Tagged VLAN {{ item }}"
         admin_state: up
