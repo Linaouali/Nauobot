@@ -66,20 +66,17 @@
   when: l2_config is defined
 
 # --- Bloc séparé pour VLANs tagged ---
-- name: Build L2 interface config for tagged VLANs
-  set_fact:
-    l2_tagged_config: >-
-      {{
-        vlan_list | map('int') 
-                  | map('regex_replace', '^(.*)$', '{"vlan_id": \\1, "port_type": "port", "port_number": "' ~ interface_id ~ '", "mode": "tagged"}')
-                  | map('from_json') 
-                  | list
-      }}
+- name: Configure tagged VLANs on the interface
+  ale.aos8.aos8_l2_interfaces:
+    config: 
+      - vlan_id: "{{ item }}"
+        port_type: port
+        port: "{{ interface_id }}"
+        mode: tagged
+        description: "Tagged VLAN {{ item }}"
+        admin_state: up
+    state: merged
+  loop: "{{ vlan_list }}"
   when: vlan_list | length > 0
 
-- name: Configure L2 interface tagged
-  ale.aos8.aos8_l2_interfaces:
-    config: "{{ l2_tagged_config }}"
-    state: merged
-  when: l2_tagged_config is defined
 
