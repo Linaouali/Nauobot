@@ -10,4 +10,4 @@
   # become: true
   
   roles:
-  - { role: updates_from_nautobot/update_l3_ports updates_from_nautobot/SPB_config_L2}
+  - { role: updates_from_nautobot/SPB_config_L2}
