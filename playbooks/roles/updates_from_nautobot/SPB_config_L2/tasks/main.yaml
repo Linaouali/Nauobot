@@ -46,13 +46,25 @@
 - name: Check existing SPB BVLANS
   ale.aos8.aos8_command:
     commands:
-      - "show spb isis bvlans"
+      - command: "show spb isis bvlans"
+        output: "text"
   register: spb_bvlan_output
   ignore_errors: true
 
 - name: Determine if BVLAN exists
   set_fact:
-    bvlan_exists: "{{ (spb_bvlan_output.stdout[0] is search(spb_bvlan_id | string)) | default(false) }}"
+    bvlan_exists: >-
+      {{
+        (spb_bvlan_output is defined and
+         spb_bvlan_output.stdout is defined and
+         spb_bvlan_output.stdout | length > 0 and
+         (spb_bvlan_id | string in spb_bvlan_output.stdout[0]))
+         | default(false)
+      }}
+
+- name: Debug BVLAN existence
+  debug:
+    msg: "BVLAN {{ spb_bvlan_id }} exists: {{ bvlan_exists }}"
 
 
 # --- 3️⃣ Créer le BVLAN si manquant ---
