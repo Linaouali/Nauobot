@@ -1,105 +1,60 @@
 ---
-- name: Configure SPB interface with global control BVLAN logic
-  hosts: "{{ device_id }}"
-  gather_facts: no
-  connection: network_cli
-  vars:
-    ansible_network_os: ale.aos8.aos8
-    ansible_remote_tmp: /tmp/.ansible/tmp
+# ============================================================
+# Role: update_spb_interface
+# Description: Configure SPB ISIS interface and create BVLAN if missing
+# ============================================================
 
-    # === Variables dynamiques reçues du Webhook Nautobot ===
-    spb_bvlan_id: "{{ bvlan_id }}"               # BVLAN du service
-    spb_control_bvlan_id: "{{ control_bvlan_id | default(4001) }}"  # BVLAN de contrôle global
-    spb_isid: "{{ isid }}"                       # ISID du service
-    spb_service_id: "{{ service_id | default(10) }}"
-    spb_ports_nni: "{{ nni_ports }}"             # Ports NNI ISIS (déjà connus dans Nautobot)
-    spb_uni_port: "{{ uni_port }}"               # Port UNI client
-    spb_description: "{{ description | default('SPB L2 Service') }}"
+# --- Variables dynamiques issues du webhook Nautobot ---
+- name: Prepare SPB interface variables
+  set_fact:
+    spb_interface: "{{ interface_id }}"
+    spb_bvlan_id: "{{ bvlan_id }}"
+    spb_iface_type: "{{ iface_type | default('p2p') }}"
+    spb_hello_interval: "{{ hello_interval | default(10) }}"
+    spb_hello_multiplier: "{{ hello_multiplier | default(3) }}"
+    spb_metric: "{{ metric | default(10) }}"
+    spb_priority: "{{ priority | default(64) }}"
+    spb_admin_state: "{{ admin_state | default(true) }}"
 
-  tasks:
+# --- Vérifie si le BVLAN existe ---
+- name: Check existing SPB BVLANS
+  ale.aos8.aos8_command:
+    commands:
+      - "show spb isis bvlans"
+  register: spb_bvlan_output
+  ignore_errors: true
 
-    ######################################################
-    # 1️⃣ Vérifier l'état du BVLAN de contrôle existant
-    ######################################################
-    - name: Check if a control BVLAN already exists
-      ale.aos8.aos8_command:
-        commands:
-          - "show spb isis control-bvlan"
-      register: control_bvlan_check
-      ignore_errors: yes
+- name: Determine if BVLAN exists
+  set_fact:
+    bvlan_exists: "{{ spb_bvlan_id | string in spb_bvlan_output.stdout[0] }}"
 
-    - name: Extract current control BVLAN ID
-      set_fact:
-        current_control_bvlan: "{{ control_bvlan_check.stdout[0] | regex_search('Control BVLAN\\s+:\\s+(\\d+)', '\\1') | first | default('') }}"
-      when: control_bvlan_check is defined
+# --- Crée le BVLAN si nécessaire ---
+- name: Ensure SPB BVLAN exists
+  ale.aos8.aos8_config:
+    lines:
+      - "spb bvlan {{ spb_bvlan_id }} admin-state enable"
+    save_when: changed
+  when: not bvlan_exists
 
-    ######################################################
-    # 2️⃣ Si aucun BVLAN de contrôle → le créer et lier aux interfaces ISIS
-    ######################################################
-    - name: Create control BVLAN if not already set
-      ale.aos8.aos8_config:
-        lines:
-          - "spb bvlan {{ spb_control_bvlan_id }} admin-state enable"
-          - "spb isis control-bvlan {{ spb_control_bvlan_id }}"
-        save_when: changed
-      when: current_control_bvlan == ''
+# --- Configure l’interface SPB ISIS ---
+- name: Build SPB ISIS interface config
+  set_fact:
+    spb_isis_lines:
+      - "spb isis interface port {{ spb_interface }} admin-state {{ 'enable' if spb_admin_state else 'disable' }}"
+      - "spb isis interface port {{ spb_interface }} type {{ spb_iface_type }}"
+      - "spb isis interface port {{ spb_interface }} hello-interval {{ spb_hello_interval }}"
+      - "spb isis interface port {{ spb_interface }} hello-multiplier {{ spb_hello_multiplier }}"
+      - "spb isis interface port {{ spb_interface }} metric {{ spb_metric }}"
+      - "spb isis interface port {{ spb_interface }} priority {{ spb_priority }}"
 
-    - name: Attach all ISIS interfaces to control BVLAN
-      ale.aos8.aos8_config:
-        lines: >-
-          {% for port in spb_ports_nni %}
-          spb isis interface port {{ port }} admin-state enable type p2p
-          {% endfor %}
-        save_when: changed
-      when: current_control_bvlan == ''
+- name: Apply SPB ISIS interface configuration
+  ale.aos8.aos8_config:
+    lines: "{{ spb_isis_lines }}"
+    save_when: changed
 
-    - name: Debug control BVLAN status
-      debug:
-        msg: >-
-          BVLAN de contrôle existant : {{ current_control_bvlan if current_control_bvlan else spb_control_bvlan_id }}
-
-    ######################################################
-    # 3️⃣ Gérer le BVLAN de service (non contrôle)
-    ######################################################
-    - name: Check existing SPB BVLANs
-      ale.aos8.aos8_command:
-        commands:
-          - "show spb isis bvlans"
-      register: spb_bvlan_output
-
-    - name: Determine if service BVLAN exists
-      set_fact:
-        bvlan_exists: "{{ spb_bvlan_id | string in spb_bvlan_output.stdout[0] }}"
-
-    - name: Create SPB BVLAN if not existing and not control
-      ale.aos8.aos8_config:
-        lines:
-          - "spb bvlan {{ spb_bvlan_id }} admin-state enable"
-        when:
-          - not bvlan_exists
-          - spb_bvlan_id != spb_control_bvlan_id
-
-    ######################################################
-    # 4️⃣ Créer le service et le SAP UNI
-    ######################################################
-    - name: Create SPB Service (ISID ↔ BVLAN)
-      ale.aos8.aos8_config:
-        lines:
-          - "service {{ spb_service_id }} spb isid {{ spb_isid }} bvlan {{ spb_bvlan_id }} description \"{{ spb_description }}\""
-          - "service {{ spb_service_id }} admin-state enable"
-        save_when: changed
-
-    - name: Configure SAP on UNI port
-      ale.aos8.aos8_config:
-        lines:
-          - "service sap port {{ spb_uni_port }}:0 admin-state enable"
-        save_when: changed
-
-    ######################################################
-    # 5️⃣ Sauvegarde
-    ######################################################
-    - name: Save configuration
-      ale.aos8.aos8_config:
-        lines:
-          - "write memory"
+# --- Sauvegarde de la configuration ---
+- name: Save configuration
+  ale.aos8.aos8_config:
+    lines:
+      - "write memory"
 
