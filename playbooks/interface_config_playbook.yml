@@ -4,6 +4,7 @@
   gather_facts: no
   connection: network_cli
   vars:
+    ansible_network_os: ale.aos8.aos8
     ansible_remote_tmp: /tmp/.ansible/tmp
   ignore_errors: true
 
