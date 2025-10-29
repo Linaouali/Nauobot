@@ -5,16 +5,20 @@
 # ============================================================
 
 # --- 0️⃣ Skip non-target devices ---
+- name: Check if current device matches target
+  set_fact:
+    target_match: "{{ (inventory_hostname == device_id) | default(false) }}"
+
 - name: Skip non-target devices
   debug:
     msg: "Skipping {{ inventory_hostname }} (target is {{ device_id }})"
-  when: inventory_hostname != device_id
+  when: not target_match
   changed_when: false
   tags: skip
 
 - name: Stop processing on non-target devices
   meta: end_host
-  when: inventory_hostname != device_id
+  when: not target_match
 
 
 # --- 1️⃣ Initialisation des variables dynamiques issues du webhook ---
@@ -23,6 +27,9 @@
     ansible_network_os: "{{ ansible_network_os | default('ale.aos8.aos8') }}"
     spb_interface: "{{ interface_id }}"
     spb_bvlan_id: "{{ bvlan_id }}"
+    spb_bvlan_name: "{{ name | default('BVLAN-' + (bvlan_id | string)) }}"
+    spb_ect_id: "{{ ect_id | default(1) }}"
+    spb_tandem_mode: "{{ tandem_multicast_mode | default('sgmode') }}"
     spb_iface_type: "{{ iface_type | default('p2p') }}"
     spb_hello_interval: "{{ hello_interval | default(10) }}"
     spb_hello_multiplier: "{{ hello_multiplier | default(3) }}"
@@ -30,6 +37,7 @@
     spb_priority: "{{ priority | default(64) }}"
     spb_admin_state: "{{ admin_state | default(true) }}"
     spb_control: "{{ control | default(false) }}"
+    spb_description: "{{ description | default('SPB BVLAN ' + (bvlan_id | string)) }}"
 
 - name: Debug SPB input values
   debug:
@@ -37,6 +45,9 @@
       - "Target device: {{ device_id }}"
       - "Interface: {{ spb_interface }}"
       - "BVLAN: {{ spb_bvlan_id }}"
+      - "Name: {{ spb_bvlan_name }}"
+      - "ECT-ID: {{ spb_ect_id }}"
+      - "Tandem mode: {{ spb_tandem_mode }}"
       - "Control: {{ spb_control }}"
       - "Admin state: {{ spb_admin_state }}"
       - "Type: {{ spb_iface_type }}"
@@ -46,8 +57,7 @@
 - name: Check existing SPB BVLANS
   ale.aos8.aos8_command:
     commands:
-      - command: "show spb isis bvlans"
-        output: "text"
+      - "show spb isis bvlans"
   register: spb_bvlan_output
   ignore_errors: true
 
@@ -67,13 +77,15 @@
     msg: "BVLAN {{ spb_bvlan_id }} exists: {{ bvlan_exists }}"
 
 
-# --- 3️⃣ Créer le BVLAN si manquant ---
-- name: Create SPB BVLAN if missing
+# --- 3️⃣ Créer ou mettre à jour le BVLAN complet ---
+- name: Create or update SPB BVLAN
   ale.aos8.aos8_config:
     lines:
+      - "spb bvlan {{ spb_bvlan_id }} name {{ spb_bvlan_name }}"
       - "spb bvlan {{ spb_bvlan_id }} admin-state enable"
+      - "spb bvlan {{ spb_bvlan_id }} ect-algorithm {{ spb_ect_id }}"
+      - "spb bvlan {{ spb_bvlan_id }} tandem-multicast-mode {{ spb_tandem_mode }}"
     save_when: changed
-  when: not bvlan_exists
 
 
 # --- 4️⃣ Si BVLAN contrôle, activer ISIS sur ce BVLAN ---
