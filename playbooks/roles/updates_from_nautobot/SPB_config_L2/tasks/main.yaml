@@ -1,12 +1,13 @@
 ---
 # ============================================================
-# Role: update_spb_interface
+# Role: SPB_config_L2
 # Description: Configure SPB ISIS interface and create BVLAN if missing
 # ============================================================
 
-# --- Variables dynamiques issues du webhook Nautobot ---
+# --- 1️⃣ Variables dynamiques issues du webhook Nautobot ---
 - name: Prepare SPB interface variables
   set_fact:
+    spb_isis_lines: []
     spb_interface: "{{ interface_id }}"
     spb_bvlan_id: "{{ bvlan_id }}"
     spb_iface_type: "{{ iface_type | default('p2p') }}"
@@ -15,8 +16,18 @@
     spb_metric: "{{ metric | default(10) }}"
     spb_priority: "{{ priority | default(64) }}"
     spb_admin_state: "{{ admin_state | default(true) }}"
+    target_device: "{{ device_id | default(inventory_hostname) }}"
 
-# --- Vérifie si le BVLAN existe ---
+- name: Debug received variables
+  debug:
+    msg:
+      - "Target device: {{ target_device }}"
+      - "Interface: {{ spb_interface }}"
+      - "BVLAN: {{ spb_bvlan_id }}"
+      - "Admin state: {{ spb_admin_state }}"
+      - "Type: {{ spb_iface_type }}"
+
+# --- 2️⃣ Vérifie si le BVLAN existe déjà ---
 - name: Check existing SPB BVLANS
   ale.aos8.aos8_command:
     commands:
@@ -26,9 +37,9 @@
 
 - name: Determine if BVLAN exists
   set_fact:
-    bvlan_exists: "{{ spb_bvlan_id | string in spb_bvlan_output.stdout[0] }}"
+    bvlan_exists: "{{ spb_bvlan_id | string in spb_bvlan_output.stdout[0] | default('') }}"
 
-# --- Crée le BVLAN si nécessaire ---
+# --- 3️⃣ Crée le BVLAN s’il n’existe pas ---
 - name: Ensure SPB BVLAN exists
   ale.aos8.aos8_config:
     lines:
@@ -36,7 +47,7 @@
     save_when: changed
   when: not bvlan_exists
 
-# --- Configure l’interface SPB ISIS ---
+# --- 4️⃣ Construit la configuration de l’interface ISIS ---
 - name: Build SPB ISIS interface config
   set_fact:
     spb_isis_lines:
@@ -46,13 +57,16 @@
       - "spb isis interface port {{ spb_interface }} hello-multiplier {{ spb_hello_multiplier }}"
       - "spb isis interface port {{ spb_interface }} metric {{ spb_metric }}"
       - "spb isis interface port {{ spb_interface }} priority {{ spb_priority }}"
+  when: spb_interface is defined and spb_bvlan_id is defined
 
+# --- 5️⃣ Applique la configuration ISIS ---
 - name: Apply SPB ISIS interface configuration
   ale.aos8.aos8_config:
     lines: "{{ spb_isis_lines }}"
     save_when: changed
+  when: spb_isis_lines is defined and spb_isis_lines | length > 0
 
-# --- Sauvegarde de la configuration ---
+# --- 6️⃣ Sauvegarde la configuration ---
 - name: Save configuration
   ale.aos8.aos8_config:
     lines:
