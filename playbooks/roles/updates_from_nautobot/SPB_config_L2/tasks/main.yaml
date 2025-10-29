@@ -83,7 +83,7 @@
     lines:
       - "spb bvlan {{ spb_bvlan_id }} name {{ spb_bvlan_name }}"
       - "spb bvlan {{ spb_bvlan_id }} admin-state enable"
-      - "spb bvlan {{ spb_bvlan_id }} ect-algorithm {{ spb_ect_id }}"
+      - "spb bvlan {{ spb_bvlan_id }} ect-id {{ spb_ect_id }}"
       - "spb bvlan {{ spb_bvlan_id }} tandem-multicast-mode {{ spb_tandem_mode }}"
     save_when: changed
 
