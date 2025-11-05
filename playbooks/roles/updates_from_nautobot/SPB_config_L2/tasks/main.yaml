@@ -1,71 +1,76 @@
 ---
 # ============================================================
 # Role: SPB_config_L2
-# Description: Configure SPB Topology (Control + Data BVLANs, ISIS, Interfaces)
+# Description: Configure SPB Topology (Control + Data BVLANs + ISIS + Interfaces)
+# Triggered by Nautobot Webhook (create/update)
 # ============================================================
 
 # --- 1️⃣ Initialisation des variables issues du webhook ---
 - name: Prepare SPB Topology variables
   set_fact:
     topology_name: "{{ topology_name | default('SPB_Topology') }}"
+    action_type: "{{ action | default('update') }}"
     control_bvlan_id: "{{ control_bvlan_id | default('1000') }}"
     data_bvlans_list: "{{ data_bvlan_ids.split(',') | map('trim') | list }}"
     devices_list: "{{ devices | default([]) }}"
     interfaces_list: "{{ interfaces | default([]) }}"
-    iface_type: "{{ iface_type | default('p2p') }}"
-    hello_interval: "{{ hello_interval | default(10) | int }}"
+    iface_type: "{{ iface_type | default('multi-access') }}"
+    hello_interval: "{{ hello_interval | default(3) | int }}"
     hello_multiplier: "{{ hello_multiplier | default(3) | int }}"
     metric: "{{ metric | default(10) | int }}"
-    priority: "{{ priority | default(64) | int }}"
+    priority: "{{ priority | default(1) | int }}"
     admin_state: "{{ admin_state | default(true) | bool }}"
     ansible_network_os: "{{ ansible_network_os | default('ale.aos8.aos8') }}"
 
-- name: Debug SPB topology input
+- name: Show received webhook data
   debug:
     msg:
-      - "Topology: {{ topology_name }}"
+      - "🧩 Webhook Action: {{ action_type }}"
+      - "🧠 Topology: {{ topology_name }}"
       - "Control BVLAN: {{ control_bvlan_id }}"
       - "Data BVLANs: {{ data_bvlans_list }}"
-      - "Devices in topology: {{ devices_list }}"
-      - "Interfaces in topology: {{ interfaces_list }}"
-      - "SPB Parameters: iface_type={{ iface_type }}, hello={{ hello_interval }}, metric={{ metric }}"
+      - "Devices: {{ devices_list }}"
+      - "Interfaces: {{ interfaces_list }}"
+  tags: debug
 
 
-# --- 2️⃣ Vérifier les BVLAN existants ---
-- name: Show existing SPB BVLANs
+# --- 2️⃣ Validation des entrées ---
+- name: Ensure we have devices and interfaces
+  fail:
+    msg: "No devices or interfaces received from Nautobot!"
+  when: devices_list | length == 0 or interfaces_list | length == 0
+
+
+# --- 3️⃣ Récupérer l’état existant du switch ---
+- name: Retrieve current SPB configuration
   ale.aos8.aos8_command:
     commands:
       - "show spb isis bvlans"
-  register: current_spb_bvlans
+      - "show spb isis interface"
+  register: current_spb
   ignore_errors: true
+  when: inventory_hostname in devices_list
 
-- name: Extract existing BVLAN IDs
+- name: Extract existing BVLAN IDs and interfaces
   set_fact:
-    existing_bvlans: "{{ current_spb_bvlans.stdout[0] | regex_findall('([0-9]+)') | unique | default([]) }}"
-  when: current_spb_bvlans is defined and current_spb_bvlans.stdout is defined
-
-- name: Debug existing BVLANs
-  debug:
-    msg: "Existing BVLANs on {{ inventory_hostname }}: {{ existing_bvlans }}"
+    existing_bvlans: "{{ current_spb.stdout[0] | regex_findall('([0-9]+)') | unique | default([]) }}"
+    existing_interfaces: "{{ current_spb.stdout[1] | regex_findall('port ([0-9]+/[0-9]+/[0-9]+)') | unique | default([]) }}"
+  when: current_spb is defined
 
 
-# --- 3️⃣ Créer le BVLAN contrôle s’il n’existe pas ---
-- name: Configure SPB Control BVLAN
+# --- 4️⃣ Configurer les BVLANs ---
+- name: Configure SPB Control BVLAN (only if missing or action=create)
   ale.aos8.aos8_config:
     lines:
       - "spb bvlan {{ control_bvlan_id }}"
       - "spb isis control-bvlan {{ control_bvlan_id }}"
     save_when: changed
-  when: control_bvlan_id not in existing_bvlans
+  when: inventory_hostname in devices_list and (action_type == "created" or control_bvlan_id not in existing_bvlans)
+  register: ctrl_bvlan_result
+  ignore_errors: true
+  tags: control_bvlan
 
-- name: Skip Control BVLAN (already exists)
-  debug:
-    msg: "Control BVLAN {{ control_bvlan_id }} already exists"
-  when: control_bvlan_id in existing_bvlans
-
-
-# --- 4️⃣ Créer les BVLANs Data ---
-- name: Configure SPB Data BVLANs
+- name: Configure SPB Data BVLANs (only if missing or action=create)
   ale.aos8.aos8_config:
     lines:
       - "spb bvlan {{ item }}"
@@ -73,38 +78,50 @@
       - "spb isis bvlan {{ item }} tandem-multicast-mode sgmode"
     save_when: changed
   loop: "{{ data_bvlans_list }}"
-  when: item not in existing_bvlans
-
-- name: Skip existing Data BVLANs
-  debug:
-    msg: "Data BVLAN {{ item }} already exists"
-  loop: "{{ data_bvlans_list }}"
-  when: item in existing_bvlans
+  when: inventory_hostname in devices_list and (action_type == "created" or item not in existing_bvlans)
+  register: data_bvlan_result
+  ignore_errors: true
+  tags: data_bvlan
 
 
-# --- 5️⃣ Activer ISIS globalement ---
+# --- 5️⃣ Activer ISIS globalement (si nouveau ou update majeur) ---
 - name: Enable SPB ISIS globally
   ale.aos8.aos8_config:
     lines:
       - "spb isis admin-state enable"
     save_when: changed
+  when: inventory_hostname in devices_list and (action_type == "created" or "'admin-state enable'" not in current_spb.stdout[1])
+  register: enable_isis_result
+  ignore_errors: true
+  tags: isis
 
 
 # --- 6️⃣ Configurer les interfaces ISIS ---
-- name: Configure SPB ISIS interfaces for this device
+- name: Select interfaces for this device
+  set_fact:
+    local_interfaces: "{{ interfaces_list | select('match', inventory_hostname ~ ':') | list }}"
   when: inventory_hostname in devices_list
+
+- name: Configure SPB ISIS interfaces for this device (skip existing if update)
   ale.aos8.aos8_config:
     lines: >-
-      {% for intf in interfaces_list if intf.split(':')[0] == inventory_hostname %}
-      spb isis interface port {{ intf.split(':')[1] }}
-      spb isis interface port {{ intf.split(':')[1] }} type {{ iface_type }}
-      spb isis interface port {{ intf.split(':')[1] }} hello-interval {{ hello_interval }}
-      spb isis interface port {{ intf.split(':')[1] }} hello-multiplier {{ hello_multiplier }}
-      spb isis interface port {{ intf.split(':')[1] }} metric {{ metric }}
-      spb isis interface port {{ intf.split(':')[1] }} priority {{ priority }}
-      spb isis interface port {{ intf.split(':')[1] }} admin-state {{ 'enable' if admin_state else 'disable' }}
+      {% for intf in local_interfaces %}
+      {% set port = intf.split(':')[1] %}
+      {% if action_type == "created" or port not in existing_interfaces %}
+      spb isis interface port {{ port }}
+      spb isis interface port {{ port }} type {{ iface_type }}
+      spb isis interface port {{ port }} hello-interval {{ hello_interval }}
+      spb isis interface port {{ port }} hello-multiplier {{ hello_multiplier }}
+      spb isis interface port {{ port }} metric {{ metric }}
+      spb isis interface port {{ port }} priority {{ priority }}
+      spb isis interface port {{ port }} admin-state {{ 'enable' if admin_state else 'disable' }}
+      {% endif %}
       {% endfor %}
     save_when: changed
+  when: local_interfaces | length > 0
+  register: intf_config_result
+  ignore_errors: true
+  tags: spb_interfaces
 
 
 # --- 7️⃣ Sauvegarder la configuration ---
@@ -112,4 +129,20 @@
   ale.aos8.aos8_config:
     lines:
       - "write memory"
+  when: inventory_hostname in devices_list
+  register: save_result
+  ignore_errors: true
+  tags: save
+
+
+# --- 8️⃣ Récapitulatif final ---
+- name: Display summary
+  debug:
+    msg:
+      - "✅ SPB Topology '{{ topology_name }}' processed for device {{ inventory_hostname }}"
+      - "Action: {{ action_type }}"
+      - "Control BVLAN: {{ control_bvlan_id }} (existing: {{ existing_bvlans }})"
+      - "Data BVLANs created: {{ data_bvlans_list | difference(existing_bvlans) }}"
+      - "Interfaces configured: {{ local_interfaces | default([]) }}"
+  tags: summary
 
