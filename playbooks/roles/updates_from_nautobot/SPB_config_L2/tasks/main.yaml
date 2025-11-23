@@ -35,3 +35,27 @@
       - "Devices: {{ devices_list }}"
       - "Interfaces: {{ interfaces_list }}"
   tags: debug
+
+
+# --- input validation ---
+- name: Ensure we have devices and interfaces
+  fail:
+    msg: "No devices or interfaces received from Nautobot!"
+  when: devices_list | length == 0 or interfaces_list | length == 0
+
+
+# --- Retrieve the existing state of the switch ---
+- name: Retrieve current SPB configuration
+  ale.aos8.aos8_command:
+    commands:
+      - "show spb isis bvlans"
+      - "show spb isis interface"
+  register: current_spb
+  ignore_errors: true
+  when: inventory_hostname in devices_list
+
+- name: Extract existing BVLAN IDs and interfaces
+  set_fact:
+    existing_bvlans: "{{ current_spb.stdout[0] | regex_findall('([0-9]+)') | unique | default([]) }}"
+    existing_interfaces: "{{ current_spb.stdout[1] | regex_findall('port ([0-9]+/[0-9]+/[0-9]+)') | unique | default([]) }}"
+  when: current_spb is defined
