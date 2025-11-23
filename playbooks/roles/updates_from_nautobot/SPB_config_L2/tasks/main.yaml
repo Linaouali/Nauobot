@@ -59,3 +59,32 @@
     existing_bvlans: "{{ current_spb.stdout[0] | regex_findall('([0-9]+)') | unique | default([]) }}"
     existing_interfaces: "{{ current_spb.stdout[1] | regex_findall('port ([0-9]+/[0-9]+/[0-9]+)') | unique | default([]) }}"
   when: current_spb is defined
+
+
+
+
+# --- configure BVLANs ---
+# --- control BVLANs ---
+- name: Configure SPB Control BVLAN (only if  action=create)
+  ale.aos8.aos8_config:
+    lines:
+      - "spb bvlan {{ control_bvlan_id }}"
+      - "spb isis control-bvlan {{ control_bvlan_id }}"
+  when: inventory_hostname in devices_list and (action_type == "created")
+  register: ctrl_bvlan_result
+  ignore_errors: true
+  tags: control_bvlan
+
+#--- DATA BVLANs ---
+- name: Configure SPB Data BVLANs (only if missing or action=create)
+  ale.aos8.aos8_config:
+    lines:
+      - "spb bvlan {{ item }}"
+     # - "spb isis bvlan {{ item }} ect-id 1"
+     # - "spb isis bvlan {{ item }} tandem-multicast-mode sgmode"
+  loop: "{{ data_bvlans_list }}"
+  when: inventory_hostname in devices_list and (action_type == "created" or item not in existing_bvlans)
+  register: data_bvlan_result
+  ignore_errors: true
+  tags: data_bvlan
+
