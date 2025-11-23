@@ -180,7 +180,7 @@
 # --- Configure Git ---
 - name: Ensure Git user is defined
   shell: |
-    cd /config_device
+    cd /home/automation/awx-operator/ansible/config_device
     git config user.email "linaouali547@gmail.com"
     git config user.name "linaouali547@gmail.com"
   delegate_to: localhost
