@@ -90,7 +90,6 @@
 
 
 
-
 # --- Configure the ISIS interfaces ---
 - name: Select interfaces for this device
   set_fact:
@@ -99,7 +98,7 @@
 
 - name: Configure SPB ISIS interfaces for this device (skip existing if update)
   ale.aos8.aos8_config:
-    lines: >-
+    lines: |
       {% for intf in local_interfaces %}
       {% set port = intf.split(':')[1] %}
       {% if action_type == "created" or port not in existing_interfaces %}
@@ -117,6 +116,9 @@
   ignore_errors: true
   tags: spb_interfaces
 
+- debug:
+    msg: "{{ intf_config_result }}"
+
 
 # --- Enable ISIS globally (if new or update) ---
 - name: Enable SPB ISIS globally
@@ -127,6 +129,7 @@
   register: enable_isis_result
   ignore_errors: true
   tags: isis
+
 
 
 
