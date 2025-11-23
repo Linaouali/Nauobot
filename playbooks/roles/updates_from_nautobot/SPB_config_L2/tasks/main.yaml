@@ -142,3 +142,57 @@
   ignore_errors: true
   tags: save
 
+
+
+# --- GIT ---
+
+# --- Collect full running configuration ---
+- name: Collect full running configuration
+  ale.aos8.aos8_command:
+    commands:
+      - "show configuration snapshot"
+  when: inventory_hostname in devices_list and
+        (ctrl_bvlan_result.changed or
+         data_bvlan_result.changed or
+         intf_config_result.changed or
+         enable_isis_result.changed)
+  register: full_config
+
+
+# --- Ensure local config directory exists ---
+- name: Ensure config_device directory exists
+  file:
+    path: "/home/automation/awx-operator/ansible/config_device"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+
+
+# --- Save config to local file ---
+- name: Save config to local file
+  copy:
+    content: "{{ full_config.stdout[0] }}"
+    dest: "/config_device/{{ inventory_hostname }}_{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}.cfg"
+  when: full_config.stdout is defined
+  delegate_to: localhost
+
+
+# --- Configure Git ---
+- name: Ensure Git user is defined
+  shell: |
+    cd /config_device
+    git config user.email "linaouali547@gmail.com"
+    git config user.name "linaouali547@gmail.com"
+  delegate_to: localhost
+
+
+# --- Commit & Push changes to Git ---
+- name: Commit device config to Git
+  shell: |
+    cd /config_device
+    git add .
+    git commit -m "Update config {{ inventory_hostname }} at {{ lookup('pipe', 'date') }}"
+    git push
+  when: full_config.stdout is defined
+  delegate_to: localhost
+
