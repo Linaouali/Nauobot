@@ -88,3 +88,46 @@
   ignore_errors: true
   tags: data_bvlan
 
+
+
+
+# --- Configure the ISIS interfaces ---
+- name: Select interfaces for this device
+  set_fact:
+    local_interfaces: "{{ interfaces_list | select('match', inventory_hostname ~ ':') | list }}"
+  when: inventory_hostname in devices_list
+
+- name: Configure SPB ISIS interfaces for this device (skip existing if update)
+  ale.aos8.aos8_config:
+    lines: >-
+      {% for intf in local_interfaces %}
+      {% set port = intf.split(':')[1] %}
+      {% if action_type == "created" or port not in existing_interfaces %}
+      spb isis interface port {{ port }}
+      spb isis interface port {{ port }} type {{ iface_type }}
+      spb isis interface port {{ port }} hello-interval {{ hello_interval }}
+      spb isis interface port {{ port }} hello-multiplier {{ hello_multiplier }}
+      spb isis interface port {{ port }} metric {{ metric }}
+      spb isis interface port {{ port }} priority {{ priority }}
+      spb isis interface port {{ port }} admin-state {{ 'enable' if admin_state else 'disable' }}
+      {% endif %}
+      {% endfor %}
+  when: local_interfaces | length > 0
+  register: intf_config_result
+  ignore_errors: true
+  tags: spb_interfaces
+
+
+# --- Enable ISIS globally (if new or update) ---
+- name: Enable SPB ISIS globally
+  ale.aos8.aos8_config:
+    lines:
+      - "spb isis admin-state enable"
+  when: inventory_hostname in devices_list and (action_type == "created" or "'admin-state enable'" not in current_spb.stdout[1])
+  register: enable_isis_result
+  ignore_errors: true
+  tags: isis
+
+
+
+
