@@ -132,5 +132,13 @@
 
 
 
-
+# --- Save Config ---
+- name: Save SPB configuration
+  ale.aos8.aos8_config:
+    lines:
+      - "write memory flash-synchro"
+  when: inventory_hostname in devices_list
+  register: save_result
+  ignore_errors: true
+  tags: save
 
