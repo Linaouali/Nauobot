@@ -5,6 +5,8 @@
 # Triggered by Nautobot Webhook (create/update)
 # ============================================================
 
+- meta: end_play
+  when: role != "SPB_TOPOLOGY"
 
 
 # --- Initialization of variables from the webhook ---

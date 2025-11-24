@@ -1,3 +1,6 @@
+- meta: end_play
+  when: role != "SPB_SERVICE"
+
 - debug:
     msg:
       - "ACTION => {{ action }}"
