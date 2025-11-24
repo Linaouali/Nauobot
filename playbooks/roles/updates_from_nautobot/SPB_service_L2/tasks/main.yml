@@ -1,14 +1,15 @@
-- name: Build basic SPB service command
-  set_fact:
-    spb_cmd: "service {{ service_id }} spb isid {{ isid }} bvlan {{ bvlan }}"
-
-- name: Apply SPB service
+# --- Configure the SPB service only on the target device ---
+- name: Configure SPB service
   ale.aos8.aos8_config:
     lines:
-      - "{{ spb_cmd }}"
+      - "service {{ service_id }} spb"
+      - "service {{ service_id }} spb isid {{ isid }} bvlan {{ bvlan }}"
+  when: inventory_hostname == device
 
-- name: Save configuration
+# --- Save Config only on this device ---
+- name: Save SPB configuration
   ale.aos8.aos8_config:
     lines:
       - "write memory flash-synchro"
+  when: inventory_hostname == device
 
