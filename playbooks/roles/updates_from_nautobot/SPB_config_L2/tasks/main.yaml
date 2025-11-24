@@ -5,7 +5,7 @@
 # Triggered by Nautobot Webhook (create/update)
 # ============================================================
 
-- meta: end_play
+- meta: end_host
   when: role != "SPB_TOPOLOGY"
 
 

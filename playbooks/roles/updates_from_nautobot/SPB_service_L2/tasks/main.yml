@@ -1,4 +1,4 @@
-- meta: end_play
+- meta: end_host
   when: role != "SPB_SERVICE"
 
 - debug:

@@ -1,4 +1,4 @@
-- meta: end_play
+- meta: end_host
   when: role != "SPB_SAP"
 
 # --- Create the SAP on the port ---
