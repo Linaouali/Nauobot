@@ -1,6 +1,3 @@
-- meta: end_host
-  when: role != "SPB_SERVICE"
-
 - debug:
     msg:
       - "ACTION => {{ action }}"

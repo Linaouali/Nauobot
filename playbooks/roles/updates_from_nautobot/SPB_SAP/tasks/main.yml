@@ -1,6 +1,3 @@
-- meta: end_host
-  when: role != "SPB_SAP"
-
 # --- Create the SAP on the port ---
 - name: Create the SAP on the port
   ale.aos8.aos8_config:
