@@ -1,5 +1,5 @@
 ---
-- name: Nautobot Webhook SPB Interface Config
+- name: Nautobot Webhook SPB Automation
   hosts: all
   gather_facts: no
   connection: network_cli
@@ -8,8 +8,36 @@
     ansible_remote_tmp: /tmp/.ansible/tmp
   ignore_errors: true
 
-  roles:
-    - { role: updates_from_nautobot/SPB_config_L2 }
-    - { role: updates_from_nautobot/SPB_service_L2 }
-    - { role: updates_from_nautobot/SPB_SAP }
+  tasks:
+
+    ####################################################################
+    # ▶️ Execute Topology role ONLY for SPB_TOPOLOGY webhooks
+    ####################################################################
+    - name: Execute SPB Topology Role
+      import_role:
+        name: updates_from_nautobot/SPB_config_L2
+      when: role == "SPB_TOPOLOGY"
+
+    ####################################################################
+    # ▶️ Execute Service role ONLY for SPB_SERVICE webhooks
+    ####################################################################
+    - name: Execute SPB Service Role
+      import_role:
+        name: updates_from_nautobot/SPB_service_L2
+      when: role == "SPB_SERVICE"
+
+    ####################################################################
+    # ▶️ Execute SAP role ONLY for SPB_SAP webhooks
+    ####################################################################
+    - name: Execute SPB SAP Role
+      import_role:
+        name: updates_from_nautobot/SPB_SAP
+      when: role == "SPB_SAP"
+
+    ####################################################################
+    # 💤 Optional Debug: show what was triggered
+    ####################################################################
+    - debug:
+        msg: "▶️ Webhook executed role {{ role }} on {{ inventory_hostname }}"
+      when: role is defined
 
