@@ -2,17 +2,21 @@
 - name: Create the SAP on the port
   ale.aos8.aos8_config:
     lines:
-      - "service access port {{ interface }} sap {{ service_id }}.{{ encapsulation }}"
+      - "service access port {{ interface }}"
+      - "service {{ service_id }} sap {{ interface }}{{ encapsulation }}"
+  when: inventory_hostname == device
 
 # --- Set SAP admin state ---
 - name: Set SAP admin state
   ale.aos8.aos8_config:
     lines:
-      - "service sap admin-state {{ 'enable' if admin_state|bool else 'disable' }}"
+      - "service {{ service_id }} sap {{ interface }}{{ encapsulation }} admin-state {{ 'enable' if admin_state|bool else 'disable' }}"
+  when: inventory_hostname == device
 
 # --- Save configuration ---
 - name: Save configuration
   ale.aos8.aos8_config:
     lines:
       - "write memory flash-synchro"
+  when: inventory_hostname == device
 
