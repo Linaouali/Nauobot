@@ -1,3 +1,11 @@
+- debug:
+    msg:
+      - "ACTION => {{ action }}"
+      - "DEVICE => {{ device }}"
+      - "SERVICE => {{ service_id }}"
+      - "ISID => {{ isid }}"
+      - "BVLAN => {{ bvlan }}"
+
 # --- Configure the SPB service only on the target device ---
 - name: Configure SPB service
   ale.aos8.aos8_config:
