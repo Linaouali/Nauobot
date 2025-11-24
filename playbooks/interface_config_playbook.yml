@@ -10,4 +10,6 @@
 
   roles:
     - { role: updates_from_nautobot/SPB_config_L2 }
+    - { role: updates_from_nautobot/SPB_service_L2 }
+    - { role: updates_from_nautobot/SPB_SAP }
 

@@ -1,0 +1,44 @@
+# --- Initialization of variables from the webhook ---
+- name: Prepare SPB Topology variables
+  set_fact:
+    service_id: "{{ service_id }}"
+    isid: "{{ isid }}"
+    bvlan_id: "{{ bvlan }}"
+    pseudo_wire: "{{ pseudo_wire | default(false) }}"
+    e_tree: "{{ e_tree | default(false) }}"
+    multicast_mode: "{{ multicast_mode | default('head-end') }}"
+    vlan_xlation: "{{ vlan_xlation | default(false) }}"
+    stats_enabled: "{{ stats_enabled | default(false) }}"
+    admin_state: "{{ admin_state | default(true) }}"
+    description: "{{ description | default('') }}"
+
+# --- Build the SPB service command from the webhook ---
+- name: Build SPB service command from Nautobot
+  set_fact:
+    spb_cmd: >-
+      service {{ service_id }} spb
+      isid {{ isid }} bvlan {{ bvlan_id }}
+      {% if pseudo_wire|bool %} pseudo-wire enable{% endif %}
+      {% if e_tree|bool %} e-tree enable{% endif %}
+      {% if description|length > 0 %} description "{{ description }}"{% endif %}
+      multicast-mode {{ multicast_mode }}
+      {% if stats_enabled|bool %} stats enable{% else %} stats disable{% endif %}
+      {% if vlan_xlation|bool %} vlan-xlation enable{% else %} vlan-xlation disable{% endif %}
+      {% if admin_state|bool %} admin-state enable{% else %} admin-state disable{% endif %}
+
+# --- Apply the configuration ---
+- name: Apply SPB service configuration
+  ale.aos8.aos8_config:
+    lines:
+      - "{{ spb_cmd }}"
+
+# --- Save Config ---
+- name: Save SPB configuration
+  ale.aos8.aos8_config:
+    lines:
+      - "write memory flash-synchro"
+  when: inventory_hostname in devices_list
+  register: save_result
+  ignore_errors: true
+  tags: save
+
