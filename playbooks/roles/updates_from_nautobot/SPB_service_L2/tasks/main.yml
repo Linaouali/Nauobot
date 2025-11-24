@@ -13,7 +13,6 @@
 - name: Configure SPB service
   ale.aos8.aos8_config:
     lines:
-      - "service {{ service_id }} spb"
       - "service {{ service_id }} spb isid {{ isid }} bvlan {{ bvlan }}"
   when: inventory_hostname == device
 
