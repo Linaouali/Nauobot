@@ -1,7 +1,3 @@
-- name: Stop if webhook is not a SPB Service
-  meta: end_play
-  when: type != "SPB Service"
-
 - name: Build basic SPB service command
   set_fact:
     spb_cmd: "service {{ service_id }} spb isid {{ isid }} bvlan {{ bvlan }}"
