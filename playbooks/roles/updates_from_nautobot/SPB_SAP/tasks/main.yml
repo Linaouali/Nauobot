@@ -3,6 +3,12 @@
   ale.aos8.aos8_config:
     lines:
       - "service access port {{ interface }}"
+        #      - "service {{ service_id }} sap port {{ interface }}{{ encapsulation }}"
+  when: inventory_hostname == device
+- name: attribuet a service to SAP port
+  ale.aos8.aos8_config:
+    lines:
+      #- "service access port {{ interface }}"
       - "service {{ service_id }} sap port {{ interface }}{{ encapsulation }}"
   when: inventory_hostname == device
 
