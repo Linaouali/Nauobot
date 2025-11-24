@@ -3,14 +3,7 @@
   ale.aos8.aos8_config:
     lines:
       - "service access port {{ interface }}"
-      - "service {{ service_id }} sap {{ interface }}{{ encapsulation }}"
-  when: inventory_hostname == device
-
-# --- Set SAP admin state ---
-- name: Set SAP admin state
-  ale.aos8.aos8_config:
-    lines:
-      - "service {{ service_id }} sap {{ interface }}{{ encapsulation }} admin-state {{ 'enable' if admin_state|bool else 'disable' }}"
+      - "service {{ service_id }} sap port {{ interface }}{{ encapsulation }}"
   when: inventory_hostname == device
 
 # --- Save configuration ---
