@@ -69,7 +69,7 @@
     lines:
       - "spb bvlan {{ control_bvlan_id }}"
       - "spb isis control-bvlan {{ control_bvlan_id }}"
-  when: inventory_hostname in devices_list and (action_type == "created")
+  when: inventory_hostname in devices_list 
   register: ctrl_bvlan_result
   ignore_errors: true
   tags: control_bvlan
