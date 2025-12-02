@@ -9,7 +9,7 @@ query:
     id: null
     name: null
     primary_ip4: host
-    platform: 
+    platform:
       napalm_driver
       network_driver
 
@@ -26,6 +26,10 @@ compose:
   ansible_password: "switch"
   ansible_command_timeout: 60
   ansible_connect_timeout: 90
+
+  # Make Nautobot info available to all hosts
+  nautobot_host: "{{ api_endpoint | regex_replace('https?://', '') | regex_replace('/$', '') }}"
+  nautobot_token: "{{ token }}"
 
 strict: false
 
