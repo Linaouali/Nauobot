@@ -5,44 +5,6 @@
 # Triggered by Nautobot Webhook (create/update)
 # ============================================================
 
-# --- Retrieve FULL SPB topology object from Nautobot ---
-- name: Retrieve full SPB Topology from Nautobot
-  ansible.builtin.uri:
-    url: "https://{{ nautobot_host }}/api/plugins/nautobot_spb/spb-topology/{{ topology_id }}/"
-    method: GET
-    headers:
-      Authorization: "Token {{ nautobot_token }}"
-      Accept: "application/json"
-    validate_certs: no
-    return_content: yes
-  register: topo_data
-
-- name: Load topology data from API
-  set_fact:
-    topology_name: "{{ topo_data.json.name }}"
-    control_bvlan_id: "{{ topo_data.json.control_bvlan_id }}"
-    data_bvlans_list: "{{ topo_data.json.data_bvlan_ids }}"
-    devices_list: "{{ topo_data.json.cached_devices }}"
-    interfaces_list: "{{ topo_data.json.cached_interfaces }}"
-    iface_type: "{{ topo_data.json.topology_interface_type }}"
-    hello_interval: "{{ topo_data.json.topology_hello_interval }}"
-    hello_multiplier: "{{ topo_data.json.topology_hello_multiplier }}"
-    metric: "{{ topo_data.json.topology_metric }}"
-    priority: "{{ topo_data.json.topology_priority }}"
-    admin_state: "{{ topo_data.json.topology_admin_state }}"
-    action_type: "{{ action }}"
-    ansible_network_os: "ale.aos8.aos8"
-
-# --- Debug output to AWX ---
-- name: Show parsed topology fields
-  debug:
-    msg:
-      - "Topology Loaded from API: {{ topology_name }}"
-      - "Devices: {{ devices_list }}"
-      - "Interfaces: {{ interfaces_list }}"
-      - "Control BVLAN: {{ control_bvlan_id }}"
-      - "Data BVLANs: {{ data_bvlans_list }}"
-      - "Action: {{ action_type }}"
 
 # --- Initialization of variables from the webhook ---
 - name: Prepare SPB Topology variables
